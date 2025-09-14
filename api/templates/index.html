@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TinyLlama RAG UI</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .container { border: 1px solid #ddd; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        textarea, input[type="text"] { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; }
+        button { background: #007bff; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .response { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-top: 10px; }
+        .source { background: #e9ecef; padding: 10px; margin: 5px 0; border-radius: 4px; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <h1>🧠 TinyLlama RAG System</h1>
+    
+    <div class="container">
+        <h2>📝 Load Document</h2>
+        <textarea id="documentContent" rows="5" placeholder="Paste your document content here..."></textarea>
+        <input type="text" id="filename" placeholder="Filename (e.g., document.txt)">
+        <button onclick="loadDocument()">Load Document</button>
+        <div id="loadResult" class="response"></div>
+    </div>
+
+    <div class="container">
+        <h2>💬 Ask Questions</h2>
+        <input type="text" id="questionInput" placeholder="Ask a question about your documents..." onkeypress="if(event.key=='Enter') askQuestion()">
+        <button onclick="askQuestion()">Ask</button>
+        <div id="answerResult" class="response"></div>
+    </div>
+
+    <script>
+        async function loadDocument() {
+            const content = document.getElementById('documentContent').value;
+            const filename = document.getElementById('filename').value || 'document.txt';
+            
+            if (!content) {
+                alert('Please enter some content');
+                return;
+            }
+
+            const resultDiv = document.getElementById('loadResult');
+            resultDiv.innerHTML = 'Loading...';
+
+            try {
+                const response = await fetch('/load-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, filename })
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = `✅ ${data.status}: ${data.chunks_processed} chunks processed`;
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function askQuestion() {
+            const question = document.getElementById('questionInput').value;
+            
+            if (!question) {
+                alert('Please enter a question');
+                return;
+            }
+
+            const resultDiv = document.getElementById('answerResult');
+            resultDiv.innerHTML = 'Thinking...';
+
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+                
+                const data = await response.json();
+                
+                if (data.answer) {
+                    let html = `<strong>Answer:</strong> ${data.answer}<br><br>`;
+                    
+                    if (data.sources && data.sources.length > 0) {
+                        html += `<strong>Sources:</strong>`;
+                        data.sources.forEach(source => {
+                            html += `<div class="source">${source.content}</div>`;
+                        });
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `❌ Error: ${data.error || 'No answer received'}`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `❌ Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
